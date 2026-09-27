@@ -1,0 +1,7 @@
+const p = require('pdf-parse')
+console.log('pdf-parse exports:', typeof p, Object.keys(p))
+console.log('express:', typeof require('express'))
+console.log('multer:', typeof require('multer'))
+console.log('cors:', typeof require('cors'))
+const inst = new p.PDFParse({ data: Buffer.from('%PDF-1.4 junk'), verbosity: 0 })
+console.log('has getText:', typeof inst.getText, 'has destroy:', typeof inst.destroy)
