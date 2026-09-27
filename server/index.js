@@ -4,7 +4,6 @@ const express = require('express')
 const cors = require('cors')
 const multer = require('multer')
 const { MongoClient } = require('mongodb')
-const { PDFParse } = require('pdf-parse')
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -95,6 +94,12 @@ app.post('/api/analyze', upload.single('resume'), async (req, res) => {
         message: 'No resume was uploaded. Send the PDF in a form field named "resume".',
       })
     }
+
+    // pdf-parse is imported lazily here so the heavy native canvas binding it
+    // pulls in (@napi-rs/canvas) is only loaded when a resume is actually
+    // analyzed — the server can start and serve /api/health even if that
+    // binding is unavailable in the current environment.
+    const { PDFParse } = require('pdf-parse')
 
     let text
     let numPages
