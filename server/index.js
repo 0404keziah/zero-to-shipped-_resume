@@ -3,11 +3,44 @@ require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const multer = require('multer')
+const { MongoClient } = require('mongodb')
 const { PDFParse } = require('pdf-parse')
 
 const app = express()
 const PORT = process.env.PORT || 5000
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
+
+// --- MongoDB Atlas ---
+// The connection string lives in server/.env and is never stored in code.
+const MONGO_URI = process.env.MONGODB_URI
+const DB_NAME = 'resumeai'
+
+// A single shared client + database handle, created once at startup.
+const mongoClient = MONGO_URI
+  ? new MongoClient(MONGO_URI, {
+      serverSelectionTimeoutMS: 5000, // fail fast if unreachable
+    })
+  : null
+let db = null // becomes the Mongo database handle once connected
+
+// Try to connect, but do NOT block HTTP startup — the API still runs even
+// if the database is down. /api/db-health reports the real connection state.
+async function connectMongo() {
+  if (!mongoClient) {
+    console.warn(
+      '[mongo] MONGODB_URI is not set in .env — database features disabled. Add your Atlas URI to use the database.'
+    )
+    return
+  }
+  try {
+    await mongoClient.connect()
+    db = mongoClient.db(DB_NAME)
+    console.log(`[mongo] Connected to MongoDB Atlas database "${DB_NAME}".`)
+  } catch (err) {
+    console.error(`[mongo] Could not connect to MongoDB Atlas: ${err.message}`)
+    db = null
+  }
+}
 
 // Only the Vite dev server may call this API.
 app.use(cors({ origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173' }))
@@ -31,6 +64,23 @@ const upload = multer({
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' })
+})
+
+// GET /api/db-health
+// Confirms whether the MongoDB Atlas connection is live. If it is not, we
+// return a 503 with a generic message — never exposing the URI or credentials.
+app.get('/api/db-health', (req, res) => {
+  if (!mongoClient || !db) {
+    return res.status(503).json({
+      status: 'error',
+      database: 'disconnected',
+      message: 'The database is not available right now. Please try again shortly.',
+    })
+  }
+  res.json({
+    status: 'ok',
+    database: 'connected',
+  })
 })
 
 // POST /api/analyze
@@ -122,3 +172,6 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`ResumeAI server listening on http://localhost:${PORT}`)
 })
+
+// Kick off the MongoDB connection after the server is listening.
+connectMongo()
