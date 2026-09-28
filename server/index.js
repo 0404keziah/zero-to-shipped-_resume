@@ -112,6 +112,7 @@ app.post('/api/analyze', upload.single('resume'), async (req, res) => {
       text = result.text
       numPages = result.total
     } catch (parseError) {
+      console.error('[pdf] PDFParse failed:', parseError)
       // The file claimed to be a PDF but could not be parsed
       // (corrupt file, encrypted, or not actually a PDF).
       return res.status(422).json({
