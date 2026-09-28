@@ -1,13 +1,12 @@
 import { useRef, useState } from 'react'
 import { ArrowRight, FileText, Loader2, UploadCloud } from 'lucide-react'
 
-// Frontend-only demo of the upload flow: pick a PDF, fake an analysis delay,
-// show a result placeholder. Replace the timeout with a real API call later.
 function UploadDemo() {
   const [file, setFile] = useState(null)
   const [dragging, setDragging] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   const [done, setDone] = useState(false)
+  const [error, setError] = useState('')
   const inputRef = useRef(null)
 
   const pickFile = (files) => {
@@ -19,15 +18,40 @@ function UploadDemo() {
     }
     setFile(picked)
     setDone(false)
+    setError('')
   }
 
-  const analyze = () => {
+  const analyze = async () => {
+    if (!file) return
+
     setAnalyzing(true)
-    // Simulated analysis — swap for fetch() when the backend exists.
-    setTimeout(() => {
-      setAnalyzing(false)
+    setDone(false)
+    setError('')
+
+    const formData = new FormData()
+    formData.append('resume', file)
+
+    try {
+      const response = await fetch(
+        'https://zero-to-shipped-resume-8p4z.vercel.app/api/analyze',
+        {
+          method: 'POST',
+          body: formData,
+        },
+      )
+
+      if (!response.ok) {
+        throw new Error('We could not analyze your resume right now.')
+      }
+
       setDone(true)
-    }, 2000)
+    } catch {
+      setError(
+        'Something went wrong while analyzing your resume. Please try again.',
+      )
+    } finally {
+      setAnalyzing(false)
+    }
   }
 
   return (
@@ -123,6 +147,12 @@ function UploadDemo() {
             Analysis complete! In the full product your detailed report would
             appear here — score, keywords, and recommendations. This demo keeps
             everything in the browser.
+          </p>
+        )}
+
+        {error && (
+          <p className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">
+            {error}
           </p>
         )}
       </div>
