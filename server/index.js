@@ -95,19 +95,18 @@ app.post('/api/analyze', upload.single('resume'), async (req, res) => {
       })
     }
 
-    // Load the worker first so it initializes the Node canvas globals before
-    // pdf-parse is loaded. Keep both imports lazy so /api/health does not load
-    // the heavy native canvas binding at startup.
-    const { CanvasFactory } = require('pdf-parse/worker')
+    // PDF.js references DOMMatrix during module initialization, even for text
+    // extraction. Provide a pure JavaScript implementation without loading a
+    // native canvas binding; keep it lazy so /api/health stays lightweight.
+    if (!globalThis.DOMMatrix) {
+      globalThis.DOMMatrix = require('@thednp/dommatrix')
+    }
     const { PDFParse } = require('pdf-parse')
 
     let text
     let numPages
     try {
-      const parser = new PDFParse({
-        data: req.file.buffer,
-        CanvasFactory,
-      })
+      const parser = new PDFParse({ data: req.file.buffer })
       const result = await parser.getText()
       await parser.destroy()
       text = result.text
