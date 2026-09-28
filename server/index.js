@@ -95,16 +95,19 @@ app.post('/api/analyze', upload.single('resume'), async (req, res) => {
       })
     }
 
-    // pdf-parse is imported lazily here so the heavy native canvas binding it
-    // pulls in (@napi-rs/canvas) is only loaded when a resume is actually
-    // analyzed — the server can start and serve /api/health even if that
-    // binding is unavailable in the current environment.
+    // Load the worker first so it initializes the Node canvas globals before
+    // pdf-parse is loaded. Keep both imports lazy so /api/health does not load
+    // the heavy native canvas binding at startup.
+    const { CanvasFactory } = require('pdf-parse/worker')
     const { PDFParse } = require('pdf-parse')
 
     let text
     let numPages
     try {
-      const parser = new PDFParse({ data: req.file.buffer })
+      const parser = new PDFParse({
+        data: req.file.buffer,
+        CanvasFactory,
+      })
       const result = await parser.getText()
       await parser.destroy()
       text = result.text
