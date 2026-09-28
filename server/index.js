@@ -101,12 +101,17 @@ app.post('/api/analyze', upload.single('resume'), async (req, res) => {
     if (!globalThis.DOMMatrix) {
       globalThis.DOMMatrix = require('@thednp/dommatrix')
     }
+    const { CanvasFactory, getData } = require('pdf-parse/worker')
     const { PDFParse } = require('pdf-parse')
+    PDFParse.setWorker(getData())
 
     let text
     let numPages
     try {
-      const parser = new PDFParse({ data: req.file.buffer })
+      const parser = new PDFParse({
+        data: req.file.buffer,
+        CanvasFactory,
+      })
       const result = await parser.getText()
       await parser.destroy()
       text = result.text
