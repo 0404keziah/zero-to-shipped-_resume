@@ -61,6 +61,80 @@ const upload = multer({
   },
 })
 
+const JOB_DESCRIPTION_STOP_WORDS = new Set([
+  'a', 'about', 'above', 'across', 'after', 'all', 'also', 'an', 'and', 'any',
+  'are', 'as', 'at', 'be', 'because', 'been', 'before', 'being', 'below',
+  'between', 'both', 'but', 'by', 'can', 'candidate', 'candidates', 'company',
+  'could', 'currently', 'day', 'degree', 'desired', 'do', 'does', 'during',
+  'each', 'either', 'eligible', 'etc', 'excellent', 'for', 'from', 'further',
+  'good', 'have', 'having', 'he', 'her', 'here', 'him', 'his', 'how', 'however',
+  'if', 'in', 'including', 'into', 'is', 'it', 'its', 'job', 'least', 'less',
+  'like', 'may', 'more', 'most', 'must', 'near', 'need', 'needed', 'needs',
+  'neither', 'new', 'no', 'nor', 'not', 'of', 'on', 'or', 'other', 'our',
+  'out', 'over', 'per', 'please', 'position', 'preferred', 'provide',
+  'qualification', 'qualifications', 'required', 'requirement', 'requirements',
+  'role', 'same', 'she', 'should', 'skills', 'so', 'some', 'such', 'than',
+  'that', 'the', 'their', 'them', 'then', 'there', 'these', 'they', 'this',
+  'those', 'through', 'to', 'under', 'up', 'us', 'various', 'very', 'was',
+  'we', 'were', 'what', 'when', 'where', 'which', 'while', 'who', 'will',
+  'with', 'within', 'would', 'you', 'your', 'years',
+])
+
+const SKILL_KEYWORDS = new Set([
+  'agile', 'ai', 'analytics', 'angular', 'api', 'aws', 'azure', 'c', 'c#',
+  'c++', 'communication', 'css', 'data', 'database', 'design', 'docker',
+  'excel', 'figma', 'gcp', 'git', 'go', 'html', 'java', 'javascript', 'jira',
+  'leadership', 'linux', 'machine', 'management', 'marketing', 'ml', 'mongodb',
+  'mysql', 'node.js', 'nosql', 'objective-c', 'operations', 'php', 'postgresql',
+  'project', 'python', 'qa', 'react', 'redis', 'research', 'rest', 'ruby',
+  'rust', 'sales', 'scrum', 'security', 'seo', 'sql', 'swift', 'team',
+  'typescript', 'ui', 'ux', 'vue',
+])
+
+function getKeywords(text) {
+  return [
+    ...new Set(
+      (text.toLowerCase().match(/[a-z0-9+#.]+/g) || [])
+        .map((word) => word.replace(/^\.+|\.+$/g, ''))
+        .filter(
+          (word) =>
+            word &&
+            !/^\d+$/.test(word) &&
+            !JOB_DESCRIPTION_STOP_WORDS.has(word) &&
+            (word.length >= 3 || SKILL_KEYWORDS.has(word)),
+        ),
+    ),
+  ]
+}
+
+function getMatchAnalysis(resumeText, jobDescription) {
+  const jobKeywords = getKeywords(jobDescription)
+  const resumeKeywords = new Set(getKeywords(resumeText))
+  const matchingKeywords = jobKeywords.filter((keyword) => resumeKeywords.has(keyword))
+  const missingKeywords = jobKeywords.filter((keyword) => !resumeKeywords.has(keyword))
+  const score = jobKeywords.length
+    ? Math.round((matchingKeywords.length / jobKeywords.length) * 100)
+    : 0
+  const suggestions = []
+
+  if (missingKeywords.length) {
+    suggestions.push(
+      `Highlight relevant experience with these job-description keywords where accurate: ${missingKeywords.slice(0, 8).join(', ')}.`,
+    )
+  } else {
+    suggestions.push('Your resume covers the extracted job-description keywords.')
+  }
+  suggestions.push('Add measurable outcomes to relevant experience bullets.')
+  suggestions.push('Tailor your summary to emphasize the most relevant experience.')
+
+  return {
+    score,
+    matchingKeywords,
+    missingKeywords,
+    suggestions,
+  }
+}
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' })
 })
@@ -83,10 +157,19 @@ app.get('/api/db-health', (req, res) => {
 })
 
 // POST /api/analyze
-// Expects: multipart/form-data with the PDF in a field named "resume".
-// Returns: extracted resume text and metadata, or a JSON error describing what went wrong.
+// Expects: multipart/form-data with a PDF in "resume" and text in "jobDescription".
 app.post('/api/analyze', upload.single('resume'), async (req, res) => {
   try {
+    const jobDescription =
+      typeof req.body?.jobDescription === 'string' ? req.body.jobDescription.trim() : ''
+    if (!jobDescription) {
+      return res.status(400).json({
+        success: false,
+        error: 'MISSING_JOB_DESCRIPTION',
+        message: 'Please provide a job description in the "jobDescription" field.',
+      })
+    }
+
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -139,9 +222,12 @@ app.post('/api/analyze', upload.single('resume'), async (req, res) => {
       })
     }
 
+    const analysis = getMatchAnalysis(trimmed, jobDescription)
+
     return res.json({
       success: true,
       message: 'Resume content extracted successfully.',
+      ...analysis,
       fileName: req.file.originalname,
       fileSizeKB: Math.round(req.file.size / 1024),
       pages: numPages,
