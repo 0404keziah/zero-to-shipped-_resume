@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   ArrowRight,
   CheckCircle2,
@@ -179,13 +180,13 @@ function Hero() {
             job-ready.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-4">
-            <a
-              href="#analyze"
+            <Link
+              to="/app"
               className="inline-flex items-center gap-2 rounded-xl bg-blue-950 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-950/20 transition hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
             >
               Analyze My Resume
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </a>
+            </Link>
             <a
               href="#how-it-works"
               className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-6 py-3.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"

@@ -1,4 +1,5 @@
 import { ArrowRight } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import Reveal from './Reveal'
 
 function CTA() {
@@ -13,13 +14,13 @@ function CTA() {
             Get your personalized resume analysis and discover exactly what you
             can improve.
           </p>
-          <a
-            href="#analyze"
+          <Link
+            to="/app"
             className="mt-8 inline-flex items-center gap-2 rounded-xl bg-white px-8 py-3.5 text-sm font-semibold text-blue-950 shadow-lg transition hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:ring-offset-2 focus:ring-offset-blue-950"
           >
             Analyze My Resume — It's Free
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </a>
+          </Link>
         </div>
       </Reveal>
     </section>

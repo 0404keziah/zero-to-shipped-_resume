@@ -4,10 +4,14 @@ const express = require('express')
 const cors = require('cors')
 const multer = require('multer')
 const { MongoClient } = require('mongodb')
+const { clerkMiddleware, getAuth } = require('@clerk/express')
 
 const app = express()
 const PORT = process.env.PORT || 5000
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
+const CLERK_AUTH_CONFIGURED = Boolean(
+  process.env.CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY,
+)
 
 // --- MongoDB Atlas ---
 // The connection string lives in server/.env and is never stored in code.
@@ -39,6 +43,34 @@ async function connectMongo() {
     console.error(`[mongo] Could not connect to MongoDB Atlas: ${err.message}`)
     db = null
   }
+}
+
+if (CLERK_AUTH_CONFIGURED) {
+  app.use(clerkMiddleware())
+} else {
+  console.warn(
+    '[auth] Clerk is not configured. /api/analyze will reject requests until CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY are set.',
+  )
+}
+
+function requireClerkAuth(req, res, next) {
+  if (!CLERK_AUTH_CONFIGURED) {
+    return res.status(503).json({
+      success: false,
+      error: 'AUTH_NOT_CONFIGURED',
+      message: 'Authentication is temporarily unavailable.',
+    })
+  }
+
+  if (!getAuth(req).isAuthenticated) {
+    return res.status(401).json({
+      success: false,
+      error: 'UNAUTHORIZED',
+      message: 'Please sign in to analyze a resume.',
+    })
+  }
+
+  next()
 }
 
 // Only the Vite dev server may call this API.
@@ -158,7 +190,7 @@ app.get('/api/db-health', (req, res) => {
 
 // POST /api/analyze
 // Expects: multipart/form-data with a PDF in "resume" and text in "jobDescription".
-app.post('/api/analyze', upload.single('resume'), async (req, res) => {
+app.post('/api/analyze', requireClerkAuth, upload.single('resume'), async (req, res) => {
   try {
     const jobDescription =
       typeof req.body?.jobDescription === 'string' ? req.body.jobDescription.trim() : ''

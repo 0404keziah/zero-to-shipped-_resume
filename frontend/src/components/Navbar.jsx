@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { useAuth, useClerk, UserButton } from '@clerk/react'
 import { Menu, ScanText, X } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
 
 const links = [
   { label: 'Features', href: '#features' },
@@ -8,8 +10,61 @@ const links = [
   { label: 'Resources', href: '#resources' },
 ]
 
-function Navbar() {
+function AuthNavigation({ mobile = false, onNavigate }) {
+  const { isLoaded, isSignedIn } = useAuth()
+  const { signOut } = useClerk()
+  const layout = mobile ? 'flex flex-col gap-2' : 'flex items-center gap-3'
+  const linkClass = mobile
+    ? 'rounded-lg px-3 py-2 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50'
+    : 'rounded-lg px-4 py-2 text-sm font-semibold text-slate-700 transition hover:text-blue-950'
+
+  if (!isLoaded) return null
+
+  if (isSignedIn) {
+    return (
+      <div className={layout}>
+        <Link
+          to="/app"
+          onClick={onNavigate}
+          className="rounded-lg bg-blue-950 px-4 py-2 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-blue-900"
+        >
+          Open Analyzer
+        </Link>
+        <button
+          type="button"
+          onClick={() => {
+            onNavigate?.()
+            void signOut({ redirectUrl: '/' })
+          }}
+          className={linkClass}
+        >
+          Sign Out
+        </button>
+        {!mobile && <UserButton />}
+      </div>
+    )
+  }
+
+  return (
+    <div className={layout}>
+      <Link to="/login" onClick={onNavigate} className={linkClass}>
+        Log In
+      </Link>
+      <Link
+        to="/signup"
+        onClick={onNavigate}
+        className="rounded-lg bg-blue-950 px-4 py-2 text-center text-sm font-semibold text-white transition hover:bg-blue-900"
+      >
+        Sign Up
+      </Link>
+    </div>
+  )
+}
+
+function Navbar({ authConfigured }) {
   const [open, setOpen] = useState(false)
+  const location = useLocation()
+  const onAnalyzer = location.pathname === '/app'
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/80 backdrop-blur-md">
@@ -17,42 +72,50 @@ function Navbar() {
         className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4"
         aria-label="Main navigation"
       >
-        <a href="#top" className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-950 text-white">
             <ScanText className="h-5 w-5" aria-hidden="true" />
           </span>
           <span className="text-lg font-bold tracking-tight text-slate-900">
             ResumeAI
           </span>
-        </a>
+        </Link>
 
         {/* Desktop links */}
-        <ul className="hidden items-center gap-8 md:flex">
-          {links.map((link) => (
-            <li key={link.href}>
-              <a
-                href={link.href}
-                className="text-sm font-medium text-slate-600 transition hover:text-blue-950"
-              >
-                {link.label}
-              </a>
-            </li>
-          ))}
-        </ul>
+        {!onAnalyzer && (
+          <ul className="hidden items-center gap-8 md:flex">
+            {links.map((link) => (
+              <li key={link.href}>
+                <a
+                  href={link.href}
+                  className="text-sm font-medium text-slate-600 transition hover:text-blue-950"
+                >
+                  {link.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
 
-        <div className="hidden items-center gap-3 md:flex">
-          <a
-            href="#login"
-            className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-700 transition hover:text-blue-950"
-          >
-            Log In
-          </a>
-          <a
-            href="#analyze"
-            className="rounded-lg bg-blue-950 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
-          >
-            Analyze My Resume
-          </a>
+        <div className="hidden md:flex">
+          {authConfigured ? (
+            <AuthNavigation />
+          ) : (
+            <div className="flex items-center gap-3">
+              <Link
+                to="/login"
+                className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-700 transition hover:text-blue-950"
+              >
+                Log In
+              </Link>
+              <Link
+                to="/signup"
+                className="rounded-lg bg-blue-950 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-900"
+              >
+                Sign Up
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Mobile toggle */}
@@ -74,32 +137,42 @@ function Navbar() {
       {/* Mobile menu */}
       {open && (
         <div className="border-t border-slate-200 bg-white px-6 py-4 md:hidden">
-          <ul className="flex flex-col gap-1">
-            {links.map((link) => (
-              <li key={link.href}>
-                <a
-                  href={link.href}
+          {!onAnalyzer && (
+            <ul className="flex flex-col gap-1">
+              {links.map((link) => (
+                <li key={link.href}>
+                  <a
+                    href={link.href}
+                    onClick={() => setOpen(false)}
+                    className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            {authConfigured ? (
+              <AuthNavigation mobile onNavigate={() => setOpen(false)} />
+            ) : (
+              <div className="flex flex-col gap-2">
+                <Link
+                  to="/login"
                   onClick={() => setOpen(false)}
-                  className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  className="rounded-lg px-3 py-2 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 >
-                  {link.label}
-                </a>
-              </li>
-            ))}
-          </ul>
-          <div className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-4">
-            <a
-              href="#login"
-              className="rounded-lg px-3 py-2 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Log In
-            </a>
-            <a
-              href="#analyze"
-              className="rounded-lg bg-blue-950 px-3 py-2.5 text-center text-sm font-semibold text-white"
-            >
-              Analyze My Resume
-            </a>
+                  Log In
+                </Link>
+                <Link
+                  to="/signup"
+                  onClick={() => setOpen(false)}
+                  className="rounded-lg bg-blue-950 px-3 py-2.5 text-center text-sm font-semibold text-white"
+                >
+                  Sign Up
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       )}
